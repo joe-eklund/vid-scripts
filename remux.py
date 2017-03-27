@@ -31,9 +31,10 @@ def make_dir(path):
 
 INPUT_FILE = sys.argv[1]
 
-OUTPUT_FILE = INPUT_FILE[:-3] + 'mp4'
+OUTPUT_FILE = 'done/' + INPUT_FILE[:-3] + 'mp4'
 
-"""
+print 'Remuxing: ' + INPUT_FILE + '\nto\n' + OUTPUT_FILE
+
 #Make temp and done folders for temp files and finished files
 make_dir('temp')
 make_dir('done')
@@ -48,7 +49,6 @@ subprocess.check_call(['ffmpeg', '-y', '-i', INPUT_FILE, '-map', '0:1', '-c:a',
 print 'Creating AAC stereo.'
 subprocess.check_call(['ffmpeg', '-y', '-i', INPUT_FILE, '-map', '0:1', '-c:a',
     'libfdk_aac', '-b:a', '160k', '-ac', '2', 'temp/AAC.mp4'])
-"""
 
 #Get AC3 volume
 print 'Grabbing AC3 volume.'
@@ -64,10 +64,6 @@ ac3_out, ac3_err = ac3_process.communicate()
 ac3_max_volume_string = re.search('max_volume:(.+?)dB',ac3_err).group(1)
 ac3_max_volume = float(ac3_max_volume_string)
 print 'Max AC3 Volume: ' + str(ac3_max_volume)
-
-#if 'max_volume' in ac3_out:
-#    print 'Got max volume!'
-
 
 #Get AAC volume
 print 'Grabbing AAC volume.'
@@ -90,20 +86,30 @@ boost = abs(aac_max_volume - ac3_max_volume)
 
 print 'Volume to boost: ' + str(boost)
 
+boost_command = 'volume=' + str(boost) + 'dB'
+
+#Making AAC Track
+subprocess.check_call([
+        'ffmpeg', '-y', '-i', INPUT_FILE,
+        '-map', '0:1',
+        '-c:a', 'libfdk_aac',
+        '-b:a', '160k',
+        '-ac', '2',
+        '-af:a', boost_command,
+        'temp/AAC_Boosted.mp4'])
 
 #Remux
 print 'Remuxing final video.'
 
-boost_command = '\"volume=' + str(boost) + 'db\"'
-
 subprocess.check_call([
         'ffmpeg', '-y', '-i', INPUT_FILE,
-        '-i', 'temp/AC3.mp4',
-        '-map', '0:0', '-map', '0:1', '-map', '1:0',
+        '-i', 'temp/AAC_Boosted.mp4',
+        '-map', '0:0', '-map', '1:0', '-map', '0:1',
         '-c:v', 'copy',
-        '-c:a:0', 'libfdk_aac', '-ac:a:0', '2', '-b:a:0', '160k', '-af:a:0',
-            boost_command,
+        '-c:a:0', 'copy',
         '-c:a:1', 'copy',
+        '-metadata:s:a:0', 'language=eng',
+        '-metadata:s:a:1', 'language=eng',
         OUTPUT_FILE])
 
 print 'Cleaning up'
