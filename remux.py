@@ -24,7 +24,9 @@ import re
 
 def make_dir(path):
     try:
-        os.makedirs(path)
+        #Only create if doesn't exist so as to not kill data inside.
+        if not os.path.exists(path):
+            os.makedirs(path)
     except OSError:
         if not os.path.isdir(path):
             raise
